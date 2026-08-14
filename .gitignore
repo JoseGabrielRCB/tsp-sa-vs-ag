@@ -1,15 +1,11 @@
-# Ambiente virtual
 .venv/
 venv/
 
-# Bytecode
 __pycache__/
 *.py[cod]
 
-# Saídas do experimento: regeradas pelo menu
 results/
 
-# Editores e sistema
 .vscode/
 .idea/
 Thumbs.db

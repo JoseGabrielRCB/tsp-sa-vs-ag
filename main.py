@@ -31,59 +31,34 @@ except ModuleNotFoundError as ausente:
     print(r"    .venv\Scripts\python.exe -m pip install -r requirements.txt")
     raise SystemExit(1)
 
-# ======================================================================================
-# CONFIGURAÇÃO DO EXPERIMENTO — altere aqui antes de rodar
-# ======================================================================================
 
-#: Tamanhos de instância avaliados, em número de cidades. Mínimo de 4 cada.
 TAMANHOS = (20, 30, 50, 75, 100)
 
-#: Repetições independentes por (tamanho, algoritmo). Os dois algoritmos veem sempre as
-#: mesmas instâncias, então a comparação é pareada.
 REPETICOES = 10
 
-#: Orçamento de avaliações da função objetivo por execução = este valor x n.
-#: É o que iguala SA e AG: n=20 -> 40.000 avaliações, n=100 -> 200.000.
 AVALIACOES_POR_CIDADE = 2000
 
-#: Quais algoritmos rodar: ("sa", "ga") para a comparação completa, ou só um deles.
 ALGORITMOS = ("sa", "ga")
 
-#: Operador de cruzamento do Algoritmo Genético: "ox" (Order Crossover) ou "pmx".
 CRUZAMENTO = "ox"
 
-#: Semente mestra. Junto de (n, repetição) determina as instâncias e todo o resto —
-#: trocar aqui gera um conjunto de problemas completamente novo.
 SEMENTE = 20260805
 
-#: Diretório das saídas: CSVs em <saída>/raw/, PNGs em <saída>/figures/.
 DIRETORIO_SAIDA = "results"
 
-#: Gráficos gerados ao final. Nomes disponíveis: distancia, tempo, passos, rotas,
-#: convergencia, boxplot, gap, tradeoff, diag-sa, diag-ga.
 GRAFICOS = ("distancia", "tempo", "passos", "rotas")
 
-#: True descarta o CSV anterior; False mescla, preservando execuções que não foram
-#: refeitas (útil para rodar só um algoritmo ou só alguns tamanhos).
 SOBRESCREVER_CSV = False
 
-# ======================================================================================
-# VISUALIZAÇÃO AO VIVO — a janela com os dois algoritmos disputando
-# ======================================================================================
 
-#: Tamanho da instância mostrada na janela.
 AO_VIVO_N = 30
 
-#: Qual repetição usar (escolhe qual das instâncias daquele tamanho aparece).
 AO_VIVO_REPETICAO = 0
 
-#: Quadros por segundo alvo. Um quadro custa ~45 ms nesta máquina.
 AO_VIVO_FPS = 20
 
-#: Velocidade inicial do slider. A 1x a execução leva ~2 min; ajustável na janela.
 AO_VIVO_VELOCIDADE = 4.0
 
-# ======================================================================================
 
 
 def preferencias_iniciais() -> Preferencias:
