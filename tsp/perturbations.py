@@ -1,20 +1,3 @@
-"""Operadores de perturbação sobre rotas, com delta de custo O(1).
-
-Três movimentos, usados tanto pelo SA (vizinhança) quanto pelo AG (mutação) — é o que
-torna a comparação entre os dois algoritmos justa: a diferença fica só na estratégia de
-busca, não no operador de vizinhança.
-
-* **inversão** (2-opt): inverte o segmento `tour[i..j]`; altera 2 arestas.
-* **translação** (or-opt): remove a cidade da posição `i` e a reinsere na posição `j`
-  do array reduzido; altera 3 arestas.
-* **troca** (swap): troca as cidades das posições `i` e `j`; altera até 4 arestas.
-
-Cada movimento expõe três funções: `propose_*` (sorteio), `delta_*` (variação de custo
-em tempo constante, olhando só as arestas afetadas) e `apply_*` (aplicação in-place).
-Como a rota é um ciclo fechado, todos os deltas tratam o wrap-around da aresta que liga
-a última cidade à primeira — inclusive os casos de adjacência entre as posições `0` e
-`n-1`, que é onde este tipo de código costuma errar.
-"""
 
 from __future__ import annotations
 
@@ -30,7 +13,6 @@ MIN_N = 4
 
 
 class Move(NamedTuple):
-    """Um movimento proposto: tipo do operador e suas duas posições."""
 
     kind: int
     i: int
@@ -38,11 +20,6 @@ class Move(NamedTuple):
 
 
 def propose_inversion(rng: np.random.Generator, n: int) -> Move:
-    """Sorteia `i < j` para inverter `tour[i..j]`.
-
-    O par `(0, n-1)` é rejeitado: inverter a rota inteira devolve o mesmo ciclo e o
-    delta correspondente seria degenerado.
-    """
     while True:
         i = int(rng.integers(n))
         j = int(rng.integers(n))
@@ -56,7 +33,6 @@ def propose_inversion(rng: np.random.Generator, n: int) -> Move:
 
 
 def delta_inversion(tour: np.ndarray, dist: np.ndarray, i: int, j: int) -> float:
-    """Variação de custo da inversão de `tour[i..j]` (duas arestas trocadas)."""
     n = tour.shape[0]
     prev = tour[i - 1]
     first = tour[i]
@@ -68,16 +44,10 @@ def delta_inversion(tour: np.ndarray, dist: np.ndarray, i: int, j: int) -> float
 
 
 def apply_inversion(tour: np.ndarray, i: int, j: int) -> None:
-    """Inverte `tour[i..j]` in-place."""
     tour[i : j + 1] = tour[i : j + 1][::-1].copy()
 
 
 def propose_translation(rng: np.random.Generator, n: int) -> Move:
-    """Sorteia a posição `i` da cidade a mover e a posição `j` de reinserção.
-
-    `j` é uma posição no array *reduzido* (a rota sem a cidade removida), logo vive em
-    `0..n-2`. `j == i` é descartado por ser a identidade.
-    """
     i = int(rng.integers(n))
     while True:
         j = int(rng.integers(n - 1))
@@ -86,11 +56,6 @@ def propose_translation(rng: np.random.Generator, n: int) -> Move:
 
 
 def delta_translation(tour: np.ndarray, dist: np.ndarray, i: int, j: int) -> float:
-    """Variação de custo de mover `tour[i]` para a posição `j` do array reduzido.
-
-    Duas parcelas: a remoção fecha a lacuna deixada pela cidade (uma aresta criada,
-    duas removidas) e a inserção abre a aresta de destino (uma removida, duas criadas).
-    """
     n = tour.shape[0]
     m = n - 1
     city = tour[i]
@@ -106,7 +71,6 @@ def delta_translation(tour: np.ndarray, dist: np.ndarray, i: int, j: int) -> flo
 
 
 def apply_translation(tour: np.ndarray, i: int, j: int) -> None:
-    """Move `tour[i]` para a posição `j` do array reduzido, in-place."""
     city = tour[i]
     if j < i:
         tour[j + 1 : i + 1] = tour[j:i].copy()
@@ -116,7 +80,6 @@ def apply_translation(tour: np.ndarray, i: int, j: int) -> None:
 
 
 def propose_swap(rng: np.random.Generator, n: int) -> Move:
-    """Sorteia duas posições distintas `i < j` para trocar."""
     i = int(rng.integers(n))
     while True:
         j = int(rng.integers(n))
@@ -128,11 +91,6 @@ def propose_swap(rng: np.random.Generator, n: int) -> Move:
 
 
 def delta_swap(tour: np.ndarray, dist: np.ndarray, i: int, j: int) -> float:
-    """Variação de custo da troca de `tour[i]` com `tour[j]` (`i < j`).
-
-    Três casos: posições adjacentes, posições adjacentes *através* do fechamento do
-    ciclo (`i == 0` e `j == n-1`) e o caso geral com quatro arestas afetadas.
-    """
     n = tour.shape[0]
     ci = tour[i]
     cj = tour[j]
@@ -164,7 +122,6 @@ def delta_swap(tour: np.ndarray, dist: np.ndarray, i: int, j: int) -> float:
 
 
 def apply_swap(tour: np.ndarray, i: int, j: int) -> None:
-    """Troca `tour[i]` com `tour[j]` in-place."""
     tour[i], tour[j] = tour[j], tour[i]
 
 
@@ -176,7 +133,6 @@ _APPLIERS = (apply_inversion, apply_translation, apply_swap)
 def propose_move(
     rng: np.random.Generator, n: int, weights: tuple[float, float, float]
 ) -> Move:
-    """Sorteia um dos três operadores segundo `weights` e propõe um movimento dele."""
     if n < MIN_N:
         raise ValueError(f"n = {n} é pequeno demais para os operadores (mínimo {MIN_N})")
     u = rng.random() * (weights[0] + weights[1] + weights[2])
@@ -190,10 +146,8 @@ def propose_move(
 
 
 def move_delta(tour: np.ndarray, dist: np.ndarray, move: Move) -> float:
-    """Variação de custo do movimento, em tempo constante."""
     return _DELTAS[move.kind](tour, dist, move.i, move.j)
 
 
 def apply_move(tour: np.ndarray, move: Move) -> None:
-    """Aplica o movimento in-place."""
     _APPLIERS[move.kind](tour, move.i, move.j)

@@ -1,14 +1,3 @@
-"""Menu interativo de terminal — a única forma de rodar o projeto.
-
-Não há argumentos de linha de comando: `python main.py` abre este menu e tudo é
-escolhido por aqui. As preferências valem para a sessão; sair e entrar de novo volta
-aos valores padrão do protocolo.
-
-A escolha do backend do matplotlib acontece em tempo de execução: o programa começa em
-`Agg` (só salva PNG, sem janela) e troca para `TkAgg` apenas quando a visualização ao
-vivo é aberta, voltando para `Agg` em seguida. Por isso `tsp.live` é importado dentro da
-função, e não no topo do módulo.
-"""
 
 from __future__ import annotations
 
@@ -36,7 +25,6 @@ _SEG_POR_AVAL_GA_POR_CIDADE = 0.05e-5
 
 @dataclass
 class Preferencias:
-    """Tudo que o menu deixa configurar, com os defaults do protocolo do trabalho."""
 
     sizes: tuple[int, ...] = (20, 30, 50, 75, 100)
     n_runs: int = 10
@@ -53,12 +41,6 @@ class Preferencias:
     live_speed: float = 4.0
 
     def validar(self) -> None:
-        """Confere os valores e explica o que corrigir se algum estiver fora.
-
-        Existe porque as constantes ficam no topo do `main.py` para serem editadas à
-        mão: um erro ali deve virar uma mensagem clara, não um traceback no meio do
-        experimento.
-        """
         if not self.sizes:
             raise ValueError("TAMANHOS está vazio — informe ao menos um tamanho")
         pequenos = [n for n in self.sizes if n < MIN_N]
@@ -94,7 +76,6 @@ class Preferencias:
             raise ValueError("AO_VIVO_VELOCIDADE precisa ser maior que zero")
 
     def experiment_config(self) -> ExperimentConfig:
-        """Traduz as preferências para a configuração usada pelos algoritmos."""
         padrao = ExperimentConfig()
         return replace(
             padrao,
@@ -108,11 +89,9 @@ class Preferencias:
 
     @property
     def total_execucoes(self) -> int:
-        """Quantas execuções o experimento vai disparar."""
         return len(self.sizes) * self.n_runs * len(self.algos)
 
     def duracao_estimada(self) -> float:
-        """Estimativa grosseira, em segundos, do experimento completo."""
         total = 0.0
         for n in self.sizes:
             avaliacoes = self.evals_per_city * n * self.n_runs
@@ -126,7 +105,6 @@ class Preferencias:
 
 
 def interpretar_tamanhos(texto: str) -> tuple[int, ...]:
-    """Lê "20,30,50" como tamanhos de instância, validando o mínimo de 4 cidades."""
     valores = []
     for pedaco in texto.replace(";", ",").split(","):
         pedaco = pedaco.strip()
@@ -142,7 +120,6 @@ def interpretar_tamanhos(texto: str) -> tuple[int, ...]:
 
 
 def interpretar_figuras(texto: str, disponiveis: tuple[str, ...]) -> tuple[str, ...]:
-    """Lê "1,3,5" (posições) ou "todos" como seleção de gráficos."""
     texto = texto.strip().lower()
     if texto in ("todos", "todas", "tudo"):
         return tuple(disponiveis)
@@ -163,7 +140,6 @@ def interpretar_figuras(texto: str, disponiveis: tuple[str, ...]) -> tuple[str, 
 
 
 def interpretar_crossover(texto: str) -> str:
-    """Valida o nome do operador de cruzamento do AG."""
     valor = texto.strip().lower()
     if valor not in ("ox", "pmx"):
         raise ValueError("use 'ox' ou 'pmx'")
@@ -171,7 +147,6 @@ def interpretar_crossover(texto: str) -> str:
 
 
 def formatar_duracao(segundos: float) -> str:
-    """Duração legível: segundos abaixo de um minuto, minutos acima."""
     if segundos < 60:
         return f"{segundos:.0f} s"
     minutos = segundos / 60
@@ -181,15 +156,14 @@ def formatar_duracao(segundos: float) -> str:
 
 
 class _Saida(Exception):
-    """Sinaliza que o usuário encerrou a entrada (Ctrl+C ou fim do stdin)."""
+    pass
 
 
 class _SemTerminal(_Saida):
-    """Não há teclado para ler: o processo foi iniciado sem entrada interativa."""
+    pass
 
 
 def _tem_teclado() -> bool:
-    """True quando dá para ler opções do teclado."""
     try:
         return sys.stdin is not None and sys.stdin.isatty()
     except (AttributeError, ValueError):
@@ -197,7 +171,6 @@ def _tem_teclado() -> bool:
 
 
 def _ler(pergunta: str) -> str:
-    """Lê uma linha, tratando Ctrl+C e fim de entrada como pedido de saída."""
     try:
         return input(pergunta).strip()
     except KeyboardInterrupt:
@@ -213,7 +186,6 @@ def _ler(pergunta: str) -> str:
 
 
 def _perguntar(rotulo: str, atual, converter, dica: str = "") -> object:
-    """Pergunta um valor, repetindo até ser válido. Enter vazio mantém o atual."""
     sufixo = f" ({dica})" if dica else ""
     while True:
         resposta = _ler(f"\n  {rotulo}{sufixo}\n  Enter mantém [{atual}] > ")
@@ -379,8 +351,6 @@ def _tela_ao_vivo_config(prefs: Preferencias) -> Preferencias:
 
 
 def _tela_configuracoes(prefs: Preferencias, iniciais: Preferencias) -> Preferencias:
-    """Edita as preferências. `iniciais` é o estado escrito no `main.py`, para onde a
-    opção "Restaurar" volta."""
     while True:
         _titulo("Configurações")
         _linha_opcao("1", "Tamanhos das instâncias", ", ".join(str(n) for n in prefs.sizes))
@@ -439,11 +409,6 @@ def _tela_configuracoes(prefs: Preferencias, iniciais: Preferencias) -> Preferen
 
 
 def executar(iniciais: Preferencias | None = None) -> int:
-    """Abre o menu e devolve o código de saída do programa.
-
-    `iniciais` vem das constantes no topo do `main.py`. É também para onde a opção
-    "Restaurar" volta — o que está escrito naquele arquivo é a referência da sessão.
-    """
     try:
         sys.stdout.reconfigure(errors="replace", line_buffering=True)
     except (AttributeError, ValueError):

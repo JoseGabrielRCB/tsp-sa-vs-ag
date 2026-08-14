@@ -1,9 +1,3 @@
-"""Recozimento Simulado (Simulated Annealing) para o TSP.
-
-Busca local estocástica com critério de aceitação de Metropolis e resfriamento
-geométrico. A temperatura inicial é calibrada automaticamente a partir da própria
-instância (ver `calibrate_t0`), em vez de ser um número chutado.
-"""
 
 from __future__ import annotations
 
@@ -31,19 +25,6 @@ def calibrate_t0(
     cfg: SAConfig,
     budget: EvalBudget | None = None,
 ) -> float:
-    """Calibra a temperatura inicial para uma taxa de aceitação alvo `chi_0`.
-
-    Faz um passeio aleatório de `calib_samples` movimentos e coleta apenas as pioras
-    `delta+`. Pela regra de Metropolis, uma piora média `mean(delta+)` é aceita com
-    probabilidade `exp(-mean(delta+) / T)`. Igualando essa probabilidade a `chi_0` e
-    isolando T:
-
-        T0 = -mean(delta+) / ln(chi_0)
-
-    Com `chi_0 = 0.8` (default) a busca começa quente o bastante para aceitar quase
-    tudo, mas sem ser um passeio puramente aleatório. As avaliações gastas na
-    calibração são debitadas do orçamento, para não dar vantagem escondida ao SA.
-    """
     n = dist.shape[0]
     tour = random_tour(rng, n)
     pioras: list[float] = []
@@ -66,7 +47,6 @@ def calibrate_t0(
 
 
 def _initial_tour(inst: Instance, rng: np.random.Generator, cfg: SAConfig) -> np.ndarray:
-    """Solução inicial: aleatória (default) ou vizinho mais próximo."""
     if cfg.init_tour == "random":
         return random_tour(rng, inst.n)
     if cfg.init_tour == "nearest":
@@ -82,18 +62,6 @@ def iter_sa(
     history_points: int,
     snapshots: bool = False,
 ) -> Iterator[Snapshot]:
-    """Gerador do Recozimento Simulado; devolve o `RunResult` ao terminar.
-
-    Uma avaliação da função objetivo = um movimento candidato (o delta O(1)). A parada
-    ocorre por orçamento esgotado, por `T < T_min` ou por `max_levels_no_improve`
-    níveis de temperatura consecutivos sem melhora do melhor global.
-
-    Com `snapshots=True`, emite um `Snapshot` ao fim de cada nível de temperatura — é o
-    que alimenta a visualização ao vivo. Com `snapshots=False` (default) o gerador não
-    faz nenhum `yield` e o laço é exatamente o de sempre: **a visualização não altera a
-    sequência de números aleatórios nem o resultado**. Use `run_sa` para o caminho
-    normal, que drena este gerador e devolve o resultado.
-    """
     n, dist = inst.n, inst.dist
     recorder = HistoryRecorder(budget.total, history_points)
 
@@ -235,9 +203,4 @@ def run_sa(
     budget: EvalBudget,
     history_points: int,
 ) -> RunResult:
-    """Executa o Recozimento Simulado até o fim e devolve o resultado.
-
-    Casca fina sobre `iter_sa` sem snapshots — nenhum `yield` acontece, então este é o
-    mesmo laço de antes, com o mesmo consumo de números aleatórios.
-    """
     return drain(iter_sa(inst, rng, cfg, budget, history_points))

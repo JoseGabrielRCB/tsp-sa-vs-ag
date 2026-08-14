@@ -1,16 +1,3 @@
-"""Ponto de entrada do trabalho: abre o menu interativo no terminal.
-
-    python main.py
-
-Não há argumentos de linha de comando. Os valores iniciais estão nas constantes logo
-abaixo — edite-as aqui antes de rodar. Tudo também pode ser ajustado durante a execução,
-em "Configurações" no menu; a opção "Restaurar" volta exatamente para o que está escrito
-neste arquivo.
-
-A chamada `matplotlib.use("Agg")` precisa vir antes de importar `tsp`, porque
-`tsp.plots` importa o pyplot: o programa começa sem janela e o menu troca para `TkAgg`
-apenas enquanto a visualização ao vivo está aberta, voltando para `Agg` depois.
-"""
 
 from __future__ import annotations
 
@@ -62,7 +49,6 @@ AO_VIVO_VELOCIDADE = 4.0
 
 
 def preferencias_iniciais() -> Preferencias:
-    """Monta as preferências da sessão a partir das constantes acima."""
     return Preferencias(
         sizes=tuple(TAMANHOS),
         n_runs=REPETICOES,
@@ -81,7 +67,6 @@ def preferencias_iniciais() -> Preferencias:
 
 
 def main() -> int:
-    """Avisa se vierem argumentos (não são usados) e abre o menu."""
     if len(sys.argv) > 1:
         print("Este programa não usa argumentos de linha de comando "
               f"(recebi: {' '.join(sys.argv[1:])}).")

@@ -1,19 +1,3 @@
-"""Visualização em tempo real: SA e AG disputando o mesmo orçamento de avaliações.
-
-Abre uma janela matplotlib com seis painéis que se atualizam enquanto os algoritmos
-rodam. Os dois avançam **até a mesma marca de avaliações a cada quadro** — é o protocolo
-de orçamento equivalente do trabalho, mostrado em vez de descrito.
-
-O módulo tem duas partes bem separadas:
-
-* `EstadoAoVivo` — o motor, sem nenhuma dependência de interface gráfica. Guarda os dois
-  geradores, avança ambos até um alvo comum de avaliações e acumula o histórico. É essa
-  separação que permite testá-lo sem abrir janela nenhuma (`tests/test_live.py`).
-* `PainelAoVivo` e `rodar_ao_vivo` — a figura, os controles e o laço de quadros.
-
-Nada aqui grava CSV: o ritmo é artificial, os tempos não seriam comparáveis com os do
-experimento e não podem contaminar `results/raw/`.
-"""
 
 from __future__ import annotations
 
@@ -49,12 +33,6 @@ MAX_PONTOS_NA_CURVA = 500
 
 
 def _colunas(historico: list[tuple]) -> list[np.ndarray]:
-    """Converte o histórico em colunas numpy, decimando **antes** de converter.
-
-    A decimação vem primeiro de propósito: converter listas de tuplas do Python para
-    numpy custa caro por elemento, e o histórico só cresce. Amostrando primeiro, o custo
-    por quadro fica constante em vez de crescer junto com a execução.
-    """
     total = len(historico)
     if total <= MAX_PONTOS_NA_CURVA:
         linhas = historico
@@ -65,18 +43,6 @@ def _colunas(historico: list[tuple]) -> list[np.ndarray]:
 
 
 class _Blit:
-    """Redesenha só os artistas que mudam, sobre um fundo cacheado.
-
-    Sem isso a janela roda a ~2 quadros por segundo: um render completo desta figura
-    (seis painéis) custa cerca de 450 ms, e o matplotlib redesenha tudo — grades, eixos,
-    rótulos, legendas — a cada quadro. Aqui o fundo estático é fotografado uma vez e
-    reaproveitado; por quadro só as linhas e os textos são desenhados por cima.
-
-    Os artistas dinâmicos são criados com `animated=True`, o que faz o matplotlib
-    ignorá-los no desenho normal — é isso que impede que eles fiquem impressos no fundo.
-    Cada desenho completo (redimensionar a janela, mexer no slider) dispara
-    `draw_event` e o fundo é refotografado sozinho.
-    """
 
     def __init__(self, canvas, figura, artistas: list[Any]) -> None:
         self.canvas = canvas
@@ -94,7 +60,6 @@ class _Blit:
             self.figura.draw_artist(artista)
 
     def atualizar(self) -> None:
-        """Restaura o fundo, redesenha os artistas dinâmicos e manda para a tela."""
         if self._fundo is None:
             self.canvas.draw()
             return
@@ -105,12 +70,6 @@ class _Blit:
 
 @dataclass
 class EstadoAoVivo:
-    """Conduz SA e AG em paralelo, sincronizados pela contagem de avaliações.
-
-    Cada algoritmo tem seu próprio `EvalBudget` com o mesmo total, exatamente como no
-    experimento. A cada chamada de `avancar`, ambos são puxados até que tenham gasto o
-    mesmo número de avaliações — é o que mantém o eixo x da convergência honesto.
-    """
 
     inst: Instance
     sa_cfg: SAConfig
@@ -134,7 +93,6 @@ class EstadoAoVivo:
         self.reiniciar()
 
     def reiniciar(self) -> None:
-        """Volta ao ponto de partida, com as mesmas sementes — a corrida se repete igual."""
         n, run = self.inst.n, self.run
         self.budget_sa = EvalBudget(self.orcamento)
         self.budget_ga = EvalBudget(self.orcamento)
@@ -162,17 +120,14 @@ class EstadoAoVivo:
 
     @property
     def terminou(self) -> bool:
-        """True quando os dois algoritmos chegaram ao fim."""
         return self.resultado_sa is not None and self.resultado_ga is not None
 
     @property
     def progresso(self) -> float:
-        """Fração do orçamento já consumida (a maior das duas execuções)."""
         gasto = max(self.budget_sa.used, self.budget_ga.used)
         return min(1.0, gasto / self.orcamento)
 
     def avancar(self, avaliacoes: float) -> None:
-        """Avança os dois algoritmos até a próxima marca comum de avaliações."""
         self._alvo = min(self._alvo + avaliacoes, float(self.orcamento))
         self._avancar_algoritmo("sa")
         self._avancar_algoritmo("ga")
@@ -217,7 +172,6 @@ class EstadoAoVivo:
 
 
 class PainelAoVivo:
-    """A figura de seis painéis, os controles e a lógica de redesenho."""
 
     def __init__(self, estado: EstadoAoVivo, fps: int, velocidade: float) -> None:
         self.estado = estado
@@ -375,26 +329,17 @@ class PainelAoVivo:
 
     @property
     def velocidade(self) -> float:
-        """Multiplicador de velocidade lido do slider (escala log2)."""
         return float(2.0 ** self.slider.val)
 
     def avaliacoes_por_quadro(self) -> float:
-        """Quantas avaliações avançar neste quadro, dado o slider.
-
-        A 1x, a execução inteira leva `SEGUNDOS_A_VELOCIDADE_1`; o slider multiplica.
-        Velocidades abaixo de 1x funcionam naturalmente porque o alvo é um float: os
-        geradores simplesmente não são puxados em todo quadro.
-        """
         base = self.estado.orcamento / (self.fps * SEGUNDOS_A_VELOCIDADE_1)
         return base * self.velocidade
 
     def alternar_pausa(self) -> None:
-        """Pausa ou retoma a animação."""
         self.pausado = not self.pausado
         self.botao_pausa.label.set_text("Continuar" if self.pausado else "Pausar")
 
     def reiniciar(self) -> None:
-        """Recomeça a corrida do zero, com as mesmas sementes."""
         self.estado.reiniciar()
         self._rota_inicial_desenhada = False
         for linha in (self.linha_conv_sa, self.linha_conv_ga, self.linha_aceit,
@@ -424,16 +369,6 @@ class PainelAoVivo:
 
 
     def _garantir_limites(self) -> None:
-        """Fixa os limites dos eixos uma única vez, assim que o estado inicial existe.
-
-        Limites fixos servem a dois propósitos: a animação não fica pulando de escala a
-        cada quadro, e — o que importa para o desempenho — o fundo cacheado do blitting
-        permanece válido, já que eixos e rótulos nunca mudam depois disso.
-
-        Todos os tetos são cotas superiores exatas, calculadas do orçamento e da
-        configuração; se um algoritmo parar antes, a linha simplesmente termina no meio
-        do eixo, o que já mostra a parada antecipada.
-        """
         estado = self.estado
         if self._limites_prontos or estado.snap_inicial is None or not estado.historico_ga:
             return
@@ -448,7 +383,6 @@ class PainelAoVivo:
         self.fig.canvas.draw()
 
     def atualizar(self) -> None:
-        """Atualiza os artistas dinâmicos e manda o quadro para a tela."""
         estado = self.estado
         coords = estado.inst.coords
         self._garantir_limites()
@@ -493,7 +427,6 @@ class PainelAoVivo:
         self.linhas_rota[chave].set_data(coords[ciclo, 0], coords[ciclo, 1])
 
     def _texto_do_titulo(self) -> str:
-        """Só a parte que muda — o resto está no `suptitle`, dentro do fundo cacheado."""
         if self.estado.terminou:
             return "CONCLUÍDO"
         if self.pausado:
@@ -511,10 +444,6 @@ def rodar_ao_vivo(
     fps: int = 20,
     velocidade: float = 4.0,
 ) -> tuple[RunResult | None, RunResult | None]:
-    """Abre a janela e conduz a corrida até o fim (ou até o usuário fechar).
-
-    Devolve os dois `RunResult` — `None` se a janela for fechada antes do término.
-    """
     estado = EstadoAoVivo(
         inst=inst, sa_cfg=sa_cfg, ga_cfg=ga_cfg, orcamento=orcamento,
         master_seed=master_seed, run=run,

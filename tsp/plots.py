@@ -1,20 +1,3 @@
-"""Geração dos gráficos estáticos do trabalho, sempre a partir dos CSVs.
-
-Este módulo **não escolhe o backend do matplotlib**. Quem escolhe é o `main.py`, que
-começa em `Agg` (só salva PNG, sem janela); o menu troca para `TkAgg` enquanto a
-visualização ao vivo está aberta. Aqui só chamamos `savefig`, que funciona nos dois.
-
-Nenhuma função aqui recebe estado em memória dos algoritmos: tudo vem de
-`results/raw/runs.csv` e `results/raw/history.csv`. Assim os PNGs podem ser regerados
-sem repetir o experimento (opção 3 do menu). As coordenadas das instâncias, que
-não estão no CSV, são reconstruídas por `make_instance` — são determinísticas a partir
-de `(master_seed, n, run)`.
-
-Convenções aplicadas em todos os gráficos: uma cor fixa por algoritmo (laranja para o
-SA, azul para o AG, par validado para daltonismo), marcador e traço também distintos
-(a identidade nunca depende só da cor), título, eixos rotulados, legenda, grade
-discreta e `dpi=150`.
-"""
 
 from __future__ import annotations
 
@@ -38,7 +21,6 @@ MARCADORES_TAMANHO = ("o", "s", "^", "D", "v")
 
 
 def figures_dir(exp: ExperimentConfig) -> Path:
-    """Diretório dos PNGs entregues."""
     caminho = Path(exp.out_dir) / "figures"
     caminho.mkdir(parents=True, exist_ok=True)
     return caminho
@@ -52,11 +34,6 @@ def _novo_grafico(figsize=(8, 5), nrows=1, ncols=1, **kw):
 
 
 def estilizar_eixo(ax) -> None:
-    """Grade e eixos recessivos, texto em tinta neutra.
-
-    Compartilhada com a visualização ao vivo (`tsp/live.py`), para que a janela em
-    tempo real e os PNGs entregues tenham exatamente a mesma aparência.
-    """
     ax.set_facecolor(SUPERFICIE)
     ax.grid(True, color=GRADE, linewidth=0.8, alpha=0.9)
     ax.set_axisbelow(True)
@@ -71,8 +48,6 @@ def estilizar_eixo(ax) -> None:
 
 
 def _salvar(fig, caminho: Path, apertar: bool = True) -> Path:
-    """Salva o PNG. `apertar=False` para figuras que reservam margem manualmente
-    (legendas fora da área de plotagem, que o `tight_layout` recortaria)."""
     if apertar:
         fig.tight_layout()
     fig.savefig(caminho, dpi=DPI, facecolor=SUPERFICIE, bbox_inches="tight")
@@ -91,7 +66,6 @@ def _filtrar(linhas: list[dict[str, Any]], **criterios: Any) -> list[dict[str, A
 def _media_desvio(
     runs: list[dict[str, Any]], algo: str, tamanhos: Sequence[int], campo: str
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Média e desvio de `campo` por tamanho; devolve também os tamanhos com dados."""
     ns, medias, desvios = [], [], []
     for n in tamanhos:
         valores = [float(r[campo]) for r in _filtrar(runs, algo=algo, n=n)]
@@ -105,12 +79,6 @@ def _media_desvio(
 def _curva_media(
     hist: list[dict[str, Any]], algo: str, n: int, budget: int, pontos: int = 300
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Curva média de convergência em uma grade comum de avaliações.
-
-    Cada repetição é reamostrada na mesma grade (`np.interp` mantém o último valor
-    depois que a execução para, que é o comportamento correto: o melhor custo não muda
-    mais). Só então as repetições são agregadas.
-    """
     grade = np.linspace(0, budget, pontos)
     curvas = []
     for run in sorted({h["run"] for h in _filtrar(hist, algo=algo, n=n)}):
@@ -123,7 +91,6 @@ def _curva_media(
 
 
 def plot_distancia_media(runs, exp) -> Path:
-    """1. Distância final média x nº de cidades, com banda de ±1 desvio padrão."""
     fig, ax = _novo_grafico()
     for algo in ALGOS:
         ns, media, desvio = _media_desvio(runs, algo, _tamanhos(runs), "best_cost")
@@ -145,7 +112,6 @@ def plot_distancia_media(runs, exp) -> Path:
 
 
 def plot_tempo_medio(runs, exp) -> Path:
-    """2. Tempo de execução médio x nº de cidades, com banda de ±1 desvio padrão."""
     fig, ax = _novo_grafico()
     for algo in ALGOS:
         ns, media, desvio = _media_desvio(runs, algo, _tamanhos(runs), "time_s")
@@ -167,11 +133,6 @@ def plot_tempo_medio(runs, exp) -> Path:
 
 
 def plot_passos(runs, exp) -> Path:
-    """3. Passos até a parada x nº de cidades.
-
-    Iterações (SA) e gerações (AG) são unidades diferentes, então cada uma fica em seu
-    próprio painel — sobrepor as duas em um eixo só daria uma comparação falsa.
-    """
     fig, axes = _novo_grafico(figsize=(11, 4.5), ncols=2)
     unidades = {"sa": "Iterações até a parada", "ga": "Gerações até a parada"}
     for ax, algo in zip(axes, ALGOS):
@@ -192,11 +153,6 @@ def plot_passos(runs, exp) -> Path:
 
 
 def plot_convergencia(runs, hist, exp) -> list[Path]:
-    """4. Melhor custo x avaliações da função objetivo, SA e AG sobrepostos.
-
-    O eixo x é a contagem de avaliações — e não iterações — porque é essa a moeda em
-    que o orçamento dos dois algoritmos foi igualado.
-    """
     caminhos = []
     for n in _tamanhos(runs):
         budget = max(r["evals_budget"] for r in _filtrar(runs, n=n))
@@ -221,7 +177,6 @@ def plot_convergencia(runs, hist, exp) -> list[Path]:
 
 
 def plot_boxplot(runs, exp) -> Path:
-    """5. Distribuição das distâncias finais, SA e AG lado a lado por tamanho."""
     tamanhos = _tamanhos(runs)
     fig, ax = _novo_grafico(figsize=(9, 5))
     largura = 0.34
@@ -253,17 +208,11 @@ def plot_boxplot(runs, exp) -> Path:
 
 
 def _melhor_por_run(runs, n: int) -> int:
-    """Repetição em que o melhor tour geral (entre os dois algoritmos) foi encontrado."""
     do_tamanho = _filtrar(runs, n=n)
     return min(do_tamanho, key=lambda r: r["best_cost"])["run"]
 
 
 def plot_melhores_rotas(runs, exp) -> list[Path]:
-    """6. Melhor rota de cada algoritmo, lado a lado, **sobre a mesma instância**.
-
-    Usar a mesma repetição nos dois painéis é essencial: comparar rotas desenhadas
-    sobre nuvens de pontos diferentes não diria nada sobre os algoritmos.
-    """
     caminhos = []
     for n in _tamanhos(runs):
         run = _melhor_por_run(runs, n)
@@ -297,11 +246,6 @@ def plot_melhores_rotas(runs, exp) -> list[Path]:
 
 
 def plot_gap_relativo(runs, exp) -> Path:
-    """7. Gap médio (%) em relação à melhor solução conhecida entre os dois algoritmos.
-
-    A referência é calculada **por instância**: para cada `(n, run)` toma-se o menor
-    custo obtido pelos dois algoritmos e mede-se quanto cada um ficou acima dele.
-    """
     tamanhos = _tamanhos(runs)
     gaps: dict[str, list[float]] = {algo: [] for algo in ALGOS}
     erros: dict[str, list[float]] = {algo: [] for algo in ALGOS}
@@ -342,7 +286,6 @@ def plot_gap_relativo(runs, exp) -> Path:
 
 
 def plot_tradeoff(runs, exp) -> Path:
-    """8. Distância final x tempo, um ponto por execução (cor = algoritmo, marcador = n)."""
     tamanhos = _tamanhos(runs)
     fig, ax = _novo_grafico(figsize=(11, 5.5))
     fig.subplots_adjust(right=0.84, top=0.80)
@@ -387,11 +330,6 @@ def plot_tradeoff(runs, exp) -> Path:
 
 
 def plot_diagnostico_sa(hist, exp) -> Path:
-    """9. Temperatura e taxa de aceitação do SA ao longo das iterações.
-
-    Duas grandezas de escalas incomparáveis, então dois painéis empilhados em vez de
-    um gráfico de eixo duplo.
-    """
     tamanhos = sorted({h["n"] for h in hist if h["algo"] == "sa"})
     n = tamanhos[-1]
     linhas = _filtrar(hist, algo="sa", n=n)
@@ -427,11 +365,6 @@ def plot_diagnostico_sa(hist, exp) -> Path:
 
 
 def plot_diagnostico_ga(hist, exp) -> Path:
-    """10. Melhor custo x custo médio da população do AG, ao longo das gerações.
-
-    A distância entre as duas curvas é a leitura de diversidade: quando o custo médio
-    encosta no melhor, a população convergiu (prematuramente ou não).
-    """
     tamanhos = sorted({h["n"] for h in hist if h["algo"] == "ga"})
     n = tamanhos[-1]
     linhas = _filtrar(hist, algo="ga", n=n)
@@ -496,7 +429,6 @@ def gerar_todos(
     figuras: Sequence[str] = FIGURAS_PADRAO,
     verbose: bool = True,
 ) -> list[Path]:
-    """Gera os PNGs selecionados a partir dos CSVs em `results/raw/`."""
     desconhecidas = [nome for nome in figuras if nome not in FIGURAS]
     if desconhecidas:
         disponiveis = ", ".join(FIGURAS)

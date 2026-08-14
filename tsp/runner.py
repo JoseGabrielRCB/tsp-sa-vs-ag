@@ -1,21 +1,3 @@
-"""Execução do protocolo de comparação e persistência dos resultados brutos.
-
-O ponto central do protocolo é o **orçamento computacional equivalente**: para cada
-instância os dois algoritmos recebem exatamente `evals_per_city * n` avaliações da
-função objetivo, contadas por um `EvalBudget` compartilhado pela mesma regra.
-
-* SA — uma avaliação por movimento candidato (o delta O(1)), incluindo as gastas na
-  calibração de T0.
-* AG — uma avaliação por indivíduo avaliado: `pop_size` na população inicial e uma por
-  filho gerado (`pop_size - elite` por geração).
-
-A paridade é em *avaliações*, não em tempo de parede: a avaliação do SA custa O(1) e a
-do AG custa O(n) (custo completo do filho, mais o cruzamento). Por isso o tempo também
-é medido e reportado — as duas leituras juntas é que dão a comparação honesta.
-
-Tudo é gravado em CSV **antes** de qualquer gráfico, para que os PNGs possam ser
-regerados sem repetir o experimento.
-"""
 
 from __future__ import annotations
 
@@ -65,7 +47,6 @@ HISTORY_FIELDS = (
 
 
 def run_single(algo: str, n: int, run: int, exp: ExperimentConfig) -> RunResult:
-    """Roda um algoritmo em uma instância, com o orçamento de avaliações do protocolo."""
     inst = make_instance(n, run, exp.master_seed)
     semente = algo_seed(exp.master_seed, n, run, algo)
     rng = np.random.default_rng(semente)
@@ -87,7 +68,6 @@ def run_experiment(
     algos: Iterable[str] = ALGOS,
     verbose: bool = True,
 ) -> list[RunResult]:
-    """Roda todas as combinações (tamanho, repetição, algoritmo) do protocolo."""
     algos = tuple(algos)
     resultados: list[RunResult] = []
     total = len(exp.sizes) * exp.n_runs * len(algos)
@@ -149,12 +129,6 @@ def _history_rows(res: RunResult) -> list[dict[str, Any]]:
 def _merge(
     antigas: list[dict[str, str]], novas: list[dict[str, Any]], chave: tuple[str, ...]
 ) -> list[dict[str, Any]]:
-    """Substitui as linhas antigas cujas chaves foram recalculadas e mantém o resto.
-
-    Permite rodar subconjuntos pelo menu (só o SA, só alguns tamanhos) sem apagar
-    resultados de execuções anteriores que continuam válidos. Para descartar tudo e
-    começar limpo, ligue "sobrescrever" nas configurações.
-    """
     recalculadas = {tuple(str(linha[c]) for c in chave) for linha in novas}
     preservadas = [
         linha for linha in antigas if tuple(str(linha[c]) for c in chave) not in recalculadas
@@ -178,14 +152,12 @@ def _read_csv(caminho: Path) -> list[dict[str, str]]:
 
 
 def raw_dir(exp: ExperimentConfig) -> Path:
-    """Diretório dos CSVs brutos."""
     return Path(exp.out_dir) / "raw"
 
 
 def save_results(
     resultados: list[RunResult], exp: ExperimentConfig, fresh: bool = False
 ) -> tuple[Path, Path]:
-    """Grava `runs.csv` e `history.csv`, mesclando com o que já existia (salvo `fresh`)."""
     runs_path = raw_dir(exp) / "runs.csv"
     hist_path = raw_dir(exp) / "history.csv"
 
@@ -209,7 +181,6 @@ def _to_float(valor: str) -> float:
 
 
 def load_runs(exp: ExperimentConfig) -> list[dict[str, Any]]:
-    """Carrega `runs.csv` com os tipos já convertidos."""
     linhas = []
     for bruta in _read_csv(raw_dir(exp) / "runs.csv"):
         linhas.append(
@@ -235,7 +206,6 @@ def load_runs(exp: ExperimentConfig) -> list[dict[str, Any]]:
 
 
 def load_history(exp: ExperimentConfig) -> list[dict[str, Any]]:
-    """Carrega `history.csv` com os tipos já convertidos (campos vazios viram NaN)."""
     linhas = []
     for bruta in _read_csv(raw_dir(exp) / "history.csv"):
         registro: dict[str, Any] = {
@@ -259,7 +229,6 @@ def load_history(exp: ExperimentConfig) -> list[dict[str, Any]]:
 
 
 def summary_table(linhas: list[dict[str, Any]]) -> str:
-    """Tabela de média ± desvio de distância, tempo e passos, por tamanho e algoritmo."""
     tamanhos = sorted({linha["n"] for linha in linhas})
     cabecalho = (
         f"{'n':>4}  {'algoritmo':<22} {'distância (média ± dp)':>26} "
